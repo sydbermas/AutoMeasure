@@ -15,7 +15,7 @@ def run():
 
         # cameras variables
         left_camera_source = 0
-        right_camera_source = 1
+        right_camera_source = 3
         pixel_width = 640
         pixel_height = 480
         angle_width = 78
@@ -68,7 +68,7 @@ def run():
         targeter1.target_return_box = False  # (x,y,bx,by,bw,bh)
         targeter1.target_return_size = True  # (x,y,%frame)
         targeter1.contour_draw = True
-        targeter1.contour_box_draw = False
+        targeter1.contour_box_draw = True   #whole area box
         targeter1.targets_draw = True
 
         # motion camera2
@@ -80,7 +80,7 @@ def run():
         targeter2.target_return_box = False  # (x,y,bx,by,bw,bh)
         targeter2.target_return_size = True  # (x,y,%frame)
         targeter2.contour_draw = True
-        targeter2.contour_box_draw = False
+        targeter2.contour_box_draw = True   #whole area box
         targeter2.targets_draw = True
 
         # ------------------------------
