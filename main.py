@@ -68,7 +68,11 @@ def run():
         targeter1.target_return_box = False  # (x,y,bx,by,bw,bh)
         targeter1.target_return_size = True  # (x,y,%frame)
         targeter1.contour_draw = True
+<<<<<<< HEAD
         targeter1.contour_box_draw = True
+=======
+        targeter1.contour_box_draw = True   #whole area box
+>>>>>>> 1a5811f8b33b231ee9dcafc22a907447b0a62f24
         targeter1.targets_draw = True
 
         # motion camera2
@@ -80,7 +84,11 @@ def run():
         targeter2.target_return_box = False  # (x,y,bx,by,bw,bh)
         targeter2.target_return_size = True  # (x,y,%frame)
         targeter2.contour_draw = True
+<<<<<<< HEAD
         targeter2.contour_box_draw = True
+=======
+        targeter2.contour_box_draw = True   #whole area box
+>>>>>>> 1a5811f8b33b231ee9dcafc22a907447b0a62f24
         targeter2.targets_draw = True
 
         # ------------------------------
