@@ -15,11 +15,7 @@ def run():
 
         # cameras variables
         left_camera_source = 0
-<<<<<<< HEAD
-        right_camera_source = 1
-=======
         right_camera_source = 3
->>>>>>> bfd7a848b7e253bf475c1c269856c11cf63af57a
         pixel_width = 640
         pixel_height = 480
         angle_width = 78
@@ -65,42 +61,26 @@ def run():
 
         # motion camera1
         # using default detect values
-<<<<<<< HEAD
-        targeter1 = Frame_Motion()
-=======
         targeter1 = Frame_Object()
->>>>>>> bfd7a848b7e253bf475c1c269856c11cf63af57a
         targeter1.contour_min_area = 1
         targeter1.targets_max = 1
         targeter1.target_on_contour = True  # False = use box size
         targeter1.target_return_box = False  # (x,y,bx,by,bw,bh)
         targeter1.target_return_size = True  # (x,y,%frame)
         targeter1.contour_draw = True
-<<<<<<< HEAD
-        targeter1.contour_box_draw = False
-=======
         targeter1.contour_box_draw = True   #whole area box
->>>>>>> bfd7a848b7e253bf475c1c269856c11cf63af57a
         targeter1.targets_draw = True
 
         # motion camera2
         # using default detect values
-<<<<<<< HEAD
-        targeter2 = Frame_Motion()
-=======
         targeter2 = Frame_Object()
->>>>>>> bfd7a848b7e253bf475c1c269856c11cf63af57a
         targeter2.contour_min_area = 1
         targeter2.targets_max = 1
         targeter2.target_on_contour = True  # False = use box size
         targeter2.target_return_box = False  # (x,y,bx,by,bw,bh)
         targeter2.target_return_size = True  # (x,y,%frame)
         targeter2.contour_draw = True
-<<<<<<< HEAD
-        targeter2.contour_box_draw = False
-=======
         targeter2.contour_box_draw = True   #whole area box
->>>>>>> bfd7a848b7e253bf475c1c269856c11cf63af57a
         targeter2.targets_draw = True
 
         # ------------------------------
@@ -187,23 +167,6 @@ def run():
             # display coordinate data
             fps1 = int(ct1.current_frame_rate)
             fps2 = int(ct2.current_frame_rate)
-<<<<<<< HEAD
-            # text = 'X: {:3.1f}\nY: {:3.1f}\nZ: {:3.1f}\nD: {:3.1f}\nFPS: {}/{}'.format(X, Y, Z, D, fps1, fps2)
-            lineloc = 0
-            lineheight = 30
-            # for t in text.split('\n'):
-            #     lineloc += lineheight
-            #     cv2.putText(frame1,
-            #                 t,
-            #                 (10, lineloc),  # location
-            #                 cv2.FONT_HERSHEY_PLAIN,  # font
-            #                 # cv2.FONT_HERSHEY_SIMPLEX, # font
-            #                 1.5,  # size
-            #                 (0, 255, 0),  # color
-            #                 1,  # line width
-            #                 cv2.LINE_AA,  #
-            #                 False)  #
-=======
             text = 'X: {:3.1f}\nY: {:3.1f}\nZ: {:3.1f}\nD: {:3.1f}\nFPS: {}/{}'.format(X, Y, Z, D, fps1, fps2)
             lineloc = 0
             lineheight = 30
@@ -219,7 +182,6 @@ def run():
                             1,  # line width
                             cv2.LINE_AA,  #
                             False)  #
->>>>>>> bfd7a848b7e253bf475c1c269856c11cf63af57a
 
             # display current target
             if x1k:
@@ -227,10 +189,7 @@ def run():
                 targeter2.frame_add_crosshairs(frame2, x2m, y2m, 48)
 
                 # display frame
-<<<<<<< HEAD
-=======
          
->>>>>>> bfd7a848b7e253bf475c1c269856c11cf63af57a
             cv2.imshow("Left Camera 1", frame1)
             cv2.imshow("Right Camera 2", frame2)
 
@@ -493,12 +452,8 @@ class Camera_Thread:
 # Motion Detection
 # ------------------------------
 
-<<<<<<< HEAD
-class Frame_Motion:
-=======
 
 class Frame_Object:
->>>>>>> bfd7a848b7e253bf475c1c269856c11cf63af57a
     # ------------------------------
     # User Instructions
     # ------------------------------
@@ -519,11 +474,7 @@ class Frame_Object:
     dilation_kernel = np.ones((dilation_value, dilation_value), np.uint8)
 
     # contour size
-<<<<<<< HEAD
-    contour_min_area = 1  # percent of frame area
-=======
     contour_min_area = 10  # percent of frame area
->>>>>>> bfd7a848b7e253bf475c1c269856c11cf63af57a
     contour_max_area = 80  # percent of frame area
 
     # target select
@@ -583,14 +534,6 @@ class Frame_Object:
         frame3 = cv2.absdiff(self.last_frame, frame2)
 
         # threshold
-<<<<<<< HEAD
-        frame3 = cv2.threshold(frame3, self.threshold, 255, cv2.THRESH_BINARY)[1]
-
-        # dilation
-        frame3 = cv2.dilate(frame3, self.dilation_kernel, iterations=self.dilation_iterations)
-        # get contours
-        contours, hierarchy = cv2.findContours(frame3, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-=======
         frame3 = cv2.threshold(frame3, self.threshold, 255, 0)[1]
 
         # dilation
@@ -599,7 +542,6 @@ class Frame_Object:
 
         # get contours
         contours, hierarchy = cv2.findContours(frame3, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
->>>>>>> bfd7a848b7e253bf475c1c269856c11cf63af57a
 
         # targets
         targets = []
@@ -650,13 +592,8 @@ class Frame_Object:
             for size, x, y, bx, by, bw, bh, c in targets:
                 cv2.circle(frame, (x, y), self.targets_point, self.targets_color, self.targets_pline)
 
-<<<<<<< HEAD
-        # reset last frame
-        self.last_frame = frame2
-=======
         # # reset last frame
         # self.last_frame = frame2
->>>>>>> bfd7a848b7e253bf475c1c269856c11cf63af57a
 
         # return target x,y
         if self.target_return_box:
@@ -676,10 +613,7 @@ class Frame_Object:
         cv2.line(frame, (x - r * 2, y), (x + r * 2, y), lc, lw)
 
         cv2.circle(frame, (x, y), r, cc, cw)
-<<<<<<< HEAD
-=======
         
->>>>>>> bfd7a848b7e253bf475c1c269856c11cf63af57a
 
 
 # ------------------------------
