@@ -1,9 +1,13 @@
-
 import time, traceback
 import cv2
 from Camera import cameraThread
 from Frame import frameObject
 from Angles import distanceAngle
+import numpy as np
+import imutils
+from imutils import perspective
+from imutils import contours
+from scipy.spatial import distance as dist
 
 
 def run():
@@ -46,8 +50,6 @@ def run():
 
         # start cameras
         
-
-
         ct1.start()
         ct2.start()
 
@@ -109,9 +111,31 @@ def run():
         # last positive target
         # from camera baseline midpoint
         X, Y, Z, D = 0, 0, 0, 0
+        def rescale_frame(frame, percent=100):  # make the video windows a bit smaller     <<<<<<<<<<<<< UPDATE TO FRAMEOBJECT
+            width = int(frame.shape[1] * percent/ 100)
+            height = int(frame.shape[0] * percent/ 100)
+            dim = (width, height)
+            return cv2.resize(frame, dim, interpolation=cv2.INTER_AREA)
 
+
+        def nothing(x): # for trackbar
+            pass
+
+        windowName="Webcam Live video feed"
+
+        cv2.namedWindow(windowName,cv2.WINDOW_AUTOSIZE)
+
+        
+        
+        # Sliders to adjust image
+        # https://medium.com/@manivannan_data/set-trackbar-on-image-using-opencv-python-58c57fbee1ee
+        cv2.createTrackbar("threshold",windowName, 80, 255, nothing)  
+        cv2.createTrackbar("kernel", windowName, 5, 30, nothing)
+        cv2.createTrackbar("iterations", windowName, 1, 10, nothing)
+
+        showLive =True
         # loop
-        while 1:
+        while (showLive):
 
             # get frames
             frame1 = ct1.next(black=True, wait=1)
@@ -163,46 +187,134 @@ def run():
                         # triangulate
                         X, Y, Z, D = angler.location(camera_separation, (xlangle, ylangle), (xrangle, yrangle),
                                                      center=True, degrees=True)
+           
+            
+            ret, frame = cameraThread.Camera_Thread.camera.read()
+            frame_resize = rescale_frame(frame)
+            if not ret:
+                print("cannot capture the frame")
+                exit()
+   
+            thresh= cv2.getTrackbarPos("threshold", windowName) 
+            ret,thresh1 = cv2.threshold(frame_resize,thresh,255,cv2.THRESH_BINARY) 
+    
+            kern=cv2.getTrackbarPos("kernel", windowName) 
+            kernel = np.ones((kern,kern),np.uint8) # square image kernel used for erosion
+    
+            itera=cv2.getTrackbarPos("iterations", windowName) 
+            dilation = cv2.dilate(thresh1, kernel, iterations=itera)
+            erosion = cv2.erode(dilation,kernel,iterations = itera) # refines all edges in the binary image
 
-            # display camera centers
-            angler.frame_add_crosshairs(frame1)
-            angler.frame_add_crosshairs(frame2)
+            opening = cv2.morphologyEx(erosion, cv2.MORPH_OPEN, kernel)
+            closing = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, kernel)  
+            closing = cv2.cvtColor(closing,cv2.COLOR_BGR2GRAY)          #<<<<<<<<<<<<<<<<<<<<<<< NO NEED
+    
+            contours,hierarchy = cv2.findContours(closing,cv2.RETR_TREE,cv2.CHAIN_APPROX_NONE) # find contours with simple approximation cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE
 
-            # display coordinate data
-            fps1 = int(ct1.current_frame_rate)
-            fps2 = int(ct2.current_frame_rate)
-            text = 'X: {:3.1f}\nY: {:3.1f}\nZ: {:3.1f}\nD: {:3.1f}\nFPS: {}/{}'.format(X, Y, Z, D, fps1, fps2)
-            lineloc = 0
-            lineheight = 30
-            for t in text.split('\n'):
-                lineloc += lineheight
-                cv2.putText(frame1,
-                            t,
-                            (10, lineloc),  # location
-                            cv2.FONT_HERSHEY_PLAIN,  # font
-                            # cv2.FONT_HERSHEY_SIMPLEX, # font
-                            1.5,  # size
-                            (0, 255, 0),  # color
-                            1,  # line width
-                            cv2.LINE_AA,  #
-                            False)  #
+            closing = cv2.cvtColor(closing,cv2.COLOR_GRAY2RGB)
+            cv2.drawContours(closing, contours, -1, (128,255,0), 1)
 
-            # display current target
-            if x1k:
-                targeter1.frame_add_crosshairs(frame1, x1m, y1m, 48)
-                targeter2.frame_add_crosshairs(frame2, x2m, y2m, 48)
+
+             # focus on only the largest outline by area
+            targets = [] #list to hold all areas
+
+            for contour in contours:    #<<<<<<<<<<<<<<<<<<<<<<<WE NEED THIS!!!
+                ar = cv2.contourArea(contour)
+                targets.append(ar)
+
+            max_area = max(targets)
+            max_area_index = targets.index(max_area)  # index of the list element with largest area
+
+            cnt = contours[max_area_index - 1] # largest area contour is usually the viewing window itself, why?
+
+            cv2.drawContours(closing, [cnt], 0, (0,0,255), 1)
+    
+            def midpoint(ptA, ptB): 
+                return ((ptA[0] + ptB[0]) * 0.5, (ptA[1] + ptB[1]) * 0.5)
+
+            # compute the rotated bounding box of the contour
+            orig = frame_resize.copy()
+            box = cv2.minAreaRect(cnt)
+            box = cv2.cv.BoxPoints(box) if imutils.is_cv2() else cv2.boxPoints(box)
+            box = np.array(box, dtype="int")
+    
+            # order the points in the contour such that they appear
+            # in top-left, top-right, bottom-right, and bottom-left
+            # order, then draw the outline of the rotated bounding
+            # box
+            box = perspective.order_points(box)
+            cv2.drawContours(orig, [box.astype("int")], -1, (0, 255, 0), 1)
+ 
+            # loop over the original points and draw them
+            for (x, y) in box:
+                cv2.circle(orig, (int(x), int(y)), 5, (0, 0, 255), -1)
+
+            # unpack the ordered bounding box, then compute the midpoint
+            # between the top-left and top-right coordinates, followed by
+            # the midpoint between bottom-left and bottom-right coordinates
+            (tl, tr, br, bl) = box
+            (tltrX, tltrY) = midpoint(tl, tr)
+            (blbrX, blbrY) = midpoint(bl, br)
+     
+            # compute the midpoint between the top-left and top-right points,
+            # followed by the midpoint between the top-righ and bottom-right
+            (tlblX, tlblY) = midpoint(tl, bl)
+            (trbrX, trbrY) = midpoint(tr, br)
+     
+            # draw the midpoints on the image
+            cv2.circle(orig, (int(tltrX), int(tltrY)), 5, (255, 0, 0), -1)
+            cv2.circle(orig, (int(blbrX), int(blbrY)), 5, (255, 0, 0), -1)
+            cv2.circle(orig, (int(tlblX), int(tlblY)), 5, (255, 0, 0), -1)
+            cv2.circle(orig, (int(trbrX), int(trbrY)), 5, (255, 0, 0), -1)
+     
+            # draw lines between the midpoints
+            cv2.line(orig, (int(tltrX), int(tltrY)), (int(blbrX), int(blbrY)),(255, 0, 255), 1)
+            cv2.line(orig, (int(tlblX), int(tlblY)), (int(trbrX), int(trbrY)),(255, 0, 255), 1)
+            cv2.drawContours(orig, [cnt], 0, (0,0,255), 1)
+    
+            # compute the Euclidean distance between the midpoints
+            dA = dist.euclidean((tltrX, tltrY), (blbrX, blbrY))
+            dB = dist.euclidean((tlblX, tlblY), (trbrX, trbrY))
+
+            # compute the size of the object
+            pixelsPerMetric = 1 # more to do here to get actual measurements that have meaning in the real world
+            dimA = dA / pixelsPerMetric
+            dimB = dB / pixelsPerMetric
+ 
+            # draw the object sizes on the image
+            cv2.putText(orig, "{:.1f}mm".format(dimA), (int(tltrX - 15), int(tltrY - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 255, 255), 2)
+            cv2.putText(orig, "{:.1f}mm".format(dimB), (int(trbrX + 10), int(trbrY)), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 255, 255), 2)
+
+            # compute the center of the contour
+
+            sd = frameObject.Frame_Object.safe_div
+            M = cv2.moments(cnt)
+            cX = int(sd(M["m10"],M["m00"]))
+            cY = int(sd(M["m01"],M["m00"]))
+ 
+            # draw the contour and center of the shape on the image
+            cv2.circle(orig, (cX, cY), 5, (255, 255, 255), -1)
+            cv2.putText(orig, "center", (cX - 20, cY - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+ 
+            cv2.imshow(windowName, orig)
+            cv2.imshow('', closing)
+            if cv2.waitKey(30)>=0:
+                showLive=False    
+
+
+                                             
 
                 # display frame
          
-            cv2.imshow("Left Camera 1", frame1)
-            cv2.imshow("Right Camera 2", frame2)
+            # cv2.imshow("Left Camera 1", frame1)
+            # cv2.imshow("Right Camera 2", frame2)
 
             # detect keys
             key = cv2.waitKey(1) & 0xFF
-            if cv2.getWindowProperty('Left Camera 1', cv2.WND_PROP_VISIBLE) < 1:
+            if cv2.getWindowProperty(windowName, cv2.WND_PROP_VISIBLE) < 1:
                 break
-            elif cv2.getWindowProperty('Right Camera 2', cv2.WND_PROP_VISIBLE) < 1:
-                break
+            # elif cv2.getWindowProperty('Right Camera 2', cv2.WND_PROP_VISIBLE) < 1:
+            #     break
             elif key == ord('q'):
                 break
             elif key != 255:
@@ -229,7 +341,8 @@ def run():
         ct2.stop()
     except:
         pass
-
+    
+   
     # kill frames
     cv2.destroyAllWindows()
 

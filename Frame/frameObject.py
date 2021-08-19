@@ -1,61 +1,65 @@
 import cv2
 import numpy as np
+import time
 
 class Frame_Object:
     # ------------------------------
     # User Instructions
     # ------------------------------
 
-    # ------------------------------
-    # User Variables
-    # ------------------------------
+    # # ------------------------------
+    # # User Variables
+    # # ------------------------------
 
-    # blur (must be positive and odd)
-    gaussian_blur = 15
+    # # blur (must be positive and odd)
+    # gaussian_blur = 15
 
-    # threshold
-    threshold = 15
+    # # threshold
+    # threshold = 15
 
-    # dilation
-    dilation_value = 6
-    dilation_iterations = 2
-    dilation_kernel = np.ones((dilation_value, dilation_value), np.uint8)
+    # # dilation
+    # dilation_value = 6
+    # dilation_iterations = 2
+    # dilation_kernel = np.ones((dilation_value, dilation_value), np.uint8)
 
-    # contour size
-    contour_min_area = 10  # percent of frame area
-    contour_max_area = 80  # percent of frame area
+    # # contour size
+    # contour_min_area = 10  # percent of frame area
+    # contour_max_area = 80  # percent of frame area
 
-    # target select
-    targets_max = 4  # max targets returned
-    target_on_contour = True  # else use box size
-    target_return_box = False  # True = return (x,y,bx,by,bw,bh), else check target_return_size
-    target_return_size = False  # True = return (x,y,percent_frame_size), else just (x,y)
+    # # target select
+    # targets_max = 4  # max targets returned
+    # target_on_contour = True  # else use box size
+    # target_return_box = False  # True = return (x,y,bx,by,bw,bh), else check target_return_size
+    # target_return_size = False  # True = return (x,y,percent_frame_size), else just (x,y)
 
-    # display contour
-    contour_draw = True
-    contour_line = 1  # border width
-    contour_point = 4  # centroid point radius
-    contour_pline = -1  # centroid point line width
-    contour_color = (0, 255, 255)  # BGR color
+    # # display contour
+    # contour_draw = True
+    # contour_line = 1  # border width
+    # contour_point = 4  # centroid point radius
+    # contour_pline = -1  # centroid point line width
+    # contour_color = (0, 255, 255)  # BGR color
 
-    # display contour box
-    contour_box_draw = True
-    contour_box_line = 1  # border width
-    contour_box_point = 4  # centroid point radius
-    contour_box_pline = -1  # centroid point line width
-    contour_box_color = (0, 255, 0)  # BGR color
+    # # display contour box
+    # contour_box_draw = True
+    # contour_box_line = 1  # border width
+    # contour_box_point = 4  # centroid point radius
+    # contour_box_pline = -1  # centroid point line width
+    # contour_box_color = (0, 255, 0)  # BGR color
 
-    # display targets
-    targets_draw = True
-    targets_point = 4  # centroid radius
-    targets_pline = -1  # border width
-    targets_color = (0, 0, 255)  # BGR color
+    # # display targets
+    # targets_draw = True
+    # targets_point = 4  # centroid radius
+    # targets_pline = -1  # border width
+    # targets_color = (0, 0, 255)  # BGR color
 
-    # ------------------------------
-    # System Variables
-    # ------------------------------
+    
+
+    # # ------------------------------
+    # # System Variables
+    # # ------------------------------
 
     last_frame = None
+    
 
     # ------------------------------
     # Functions
@@ -63,105 +67,90 @@ class Frame_Object:
 
     def targets(self, frame):
 
+       
+
         # frame dimensions
         width, height, depth = np.shape(frame)
         area = width * height
+       
 
-        # grayscale
-        frame2 = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        # blur
-        frame2 = cv2.GaussianBlur(frame2, (self.gaussian_blur, self.gaussian_blur), 0)
+    def safe_div(x,y): # so we don't crash so often 
+        if y==0: return 0
+        return x/y
 
-        # initialize compare frame
-        if self.last_frame is None:
-            self.last_frame = frame2
-            return []
+    
+    def loop(self):
 
-        # delta
-        frame3 = cv2.absdiff(self.last_frame, frame2)
+        # load start frame
+        frame = self.black_frame
+        if not self.buffer.full():
+            self.buffer.put(frame, False)
 
-        # threshold
-        frame3 = cv2.threshold(frame3, self.threshold, 255, 0)[1]
+        # status
+        self.frame_grab_on = True
+        self.loop_start_time = time.time()
 
-        # dilation
-        frame3 = cv2.dilate(frame3, self.dilation_kernel, iterations=self.dilation_iterations)
-        
+        # frame rate
+        fc = 0
+        t1 = time.time()
 
-        # get contours
-        contours, hierarchy = cv2.findContours(frame3, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        # loop
+        while 1:
 
-        # targets
-        targets = []
-        for c in contours:
+            # external shut down
+            if not self.frame_grab_run:
+                break
 
-            # basic contour data
-            ca = cv2.contourArea(c)
-            bx, by, bw, bh = cv2.boundingRect(c)
-            ba = bw * bh
+            # true buffered mode (for files, no loss)
+            if self.buffer_all:
 
-            # target on contour
-            if self.target_on_contour:
-                p = 100 * ca / area
-                if (p >= self.contour_min_area) and (p <= self.contour_max_area):
-                    M = cv2.moments(c)  # ;print( M )
-                    tx = int(M['m10'] / M['m00'])
-                    ty = int(M['m01'] / M['m00'])
-                    targets.append((p, tx, ty, bx, by, bw, bh, c))
+                # buffer is full, pause and loop
+                if self.buffer.full():
+                    time.sleep(1 / self.camera_frame_rate)
 
-            # target on contour box
+                # or load buffer with next frame
+                else:
+
+                    grabbed, frame = self.camera.read()
+
+                    if not grabbed:
+                        break
+
+                    self.buffer.put(frame, False)
+                    self.frame_count += 1
+                    fc += 1
+
+            # false buffered mode (for camera, loss allowed)
             else:
-                p = 100 * ba / area
-                if (p >= self.contour_min_area) and (p <= self.contour_max_area):
-                    tx = bx + int(bw / 2)
-                    ty = by + int(bh / 2)
-                    targets.append((p, tx, ty, bx, by, bw, bh, c))
 
-        # select targets
-        targets.sort()
-        targets.reverse()
-        targets = targets[:self.targets_max]
+                grabbed, frame = self.camera.read()
+                if not grabbed:
+                    break
 
-        # add contours to frame
-        if self.contour_draw:
-            for size, x, y, bx, by, bw, bh, c in targets:
-                cv2.drawContours(frame, [c], 0, self.contour_color, self.contour_line)
-                cv2.circle(frame, (x, y), self.contour_point, self.contour_color, self.contour_pline)
+                # open a spot in the buffer
+                if self.buffer.full():
+                    self.buffer.get()
 
-        # add contour boxes to frame
-        if self.contour_box_draw:
-            for size, x, y, bx, by, bw, bh, c in targets:
-                cv2.rectangle(frame, (bx, by), (bx + bw, by + bh), self.contour_box_color, self.contour_box_line)
-                cv2.circle(frame, (bx + int(bw / 2), by + int(bh / 2)), self.contour_box_point, self.contour_box_color,
-                           self.contour_box_pline)
+                self.buffer.put(frame, False)
+                self.frame_count += 1
+                fc += 1
 
-        # add targets to frame
-        if self.targets_draw:
-            for size, x, y, bx, by, bw, bh, c in targets:
-                cv2.circle(frame, (x, y), self.targets_point, self.targets_color, self.targets_pline)
+            # update frame read rate
+            if fc >= 10:
+                self.current_frame_rate = round(fc / (time.time() - t1), 2)
+                fc = 0
+                t1 = time.time()
 
-        # # reset last frame
-        # self.last_frame = frame2
+        # shut down
+        self.loop_start_time = 0
+        self.frame_grab_on = False
+        self.stop()
+    
+    
+    
 
-        # return target x,y
-        if self.target_return_box:
-            return [(x, y, bx, by, bw, bh) for (size, x, y, bx, by, bw, bh, c) in targets]
-        elif self.target_return_size:
-            return [(x, y, size) for (size, x, y, bx, by, bw, bh, c) in targets]
-        else:
-            return [(x, y) for (size, x, y, bx, by, bw, bh, c) in targets]
-
-    def frame_add_crosshairs(self, frame, x, y, r=20, lc=(0, 0, 255), cc=(0, 0, 255), lw=1, cw=1):
-
-        x = int(round(x, 0))
-        y = int(round(y, 0))
-        r = int(round(r, 0))
-
-        cv2.line(frame, (x, y - r * 2), (x, y + r * 2), lc, lw)
-        cv2.line(frame, (x - r * 2, y), (x + r * 2, y), lc, lw)
-
-        cv2.circle(frame, (x, y), r, cc, cw)
-        
+      
 
 
 # ------------------------------

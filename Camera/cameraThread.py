@@ -50,7 +50,7 @@ class Camera_Thread:
     # ------------------------------
 
     # camera
-    camera = None
+    camera = cv2.VideoCapture(0,cv2.CAP_DSHOW)
     camera_init = 0.5
 
     # buffer
@@ -72,6 +72,7 @@ class Camera_Thread:
 
     def start(self):
 
+        
         # buffer
         if self.buffer_all:
             self.buffer = queue.Queue(self.buffer_length)
@@ -80,7 +81,10 @@ class Camera_Thread:
             self.buffer = queue.Queue(1)
 
         # camera setup
+        
         self.camera = cv2.VideoCapture(self.camera_source, cv2.CAP_DSHOW)
+       
+        
         self.camera.set(3, self.camera_width)
         self.camera.set(4, self.camera_height)
         self.camera.set(5, self.camera_frame_rate)
@@ -102,7 +106,11 @@ class Camera_Thread:
 
         # start thread
         self.thread = threading.Thread(target=self.loop)
+        
         self.thread.start()
+
+        
+    
 
     def stop(self):
 
@@ -125,9 +133,10 @@ class Camera_Thread:
         self.buffer = None
 
     def loop(self):
-
+        
         # load start frame
         frame = self.black_frame
+        
         if not self.buffer.full():
             self.buffer.put(frame, False)
 
@@ -156,7 +165,9 @@ class Camera_Thread:
                 # or load buffer with next frame
                 else:
 
-                    grabbed, frame = self.camera.read()
+                    grabbed, frame =  self.camera.read()
+                    
+                    
 
                     if not grabbed:
                         break
@@ -164,11 +175,15 @@ class Camera_Thread:
                     self.buffer.put(frame, False)
                     self.frame_count += 1
                     fc += 1
+                
+                return frame
 
             # false buffered mode (for camera, loss allowed)
             else:
 
                 grabbed, frame = self.camera.read()
+                
+                
                 if not grabbed:
                     break
 
@@ -185,6 +200,7 @@ class Camera_Thread:
                 self.current_frame_rate = round(fc / (time.time() - t1), 2)
                 fc = 0
                 t1 = time.time()
+            
 
         # shut down
         self.loop_start_time = 0
